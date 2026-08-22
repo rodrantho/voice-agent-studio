@@ -1,0 +1,9 @@
+[general]
+enabled=yes
+pretty=no
+allowed_origins=http://127.0.0.1
+
+[voice-agent-studio]
+type=user
+read_only=no
+password=${ARI_PASSWORD}

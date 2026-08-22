@@ -1,0 +1,5 @@
+[voice-agent-inbound]
+exten => _X!,1,NoOp(Voice Agent Studio inbound call)
+ same => n,Answer()
+ same => n,Stasis(voice-agent-studio)
+ same => n,Hangup()

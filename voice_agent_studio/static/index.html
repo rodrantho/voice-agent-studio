@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voice Agent Studio</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<section id="auth" class="auth-shell">
+  <div class="auth-card">
+    <div class="brand-mark">VA</div>
+    <h1>Voice Agent Studio</h1>
+    <p>Configurá un agente telefónico conectado a tu PBX.</p>
+    <form id="auth-form">
+      <label>Usuario<input id="auth-user" autocomplete="username" required minlength="3"></label>
+      <label>Contraseña<input id="auth-pass" type="password" autocomplete="current-password" required minlength="12"></label>
+      <button id="auth-submit" type="submit">Ingresar</button>
+    </form>
+    <small id="auth-help"></small>
+  </div>
+</section>
+<div id="app" class="app hidden">
+  <aside>
+    <div class="logo"><span>VA</span><div><strong>Voice Agent</strong><small>Studio</small></div></div>
+    <nav id="nav">
+      <button data-page="overview" class="active">Resumen</button>
+      <button data-page="agent">Agente</button>
+      <button data-page="telephony">Telefonía</button>
+      <button data-page="ai">Inteligencia artificial</button>
+      <button data-page="voice">Voz y escucha</button>
+      <button data-page="directory">Directorio</button>
+      <button data-page="flows">Flujos</button>
+      <button data-page="security">Seguridad</button>
+      <button data-page="diagnostics">Diagnóstico</button>
+    </nav>
+    <button id="logout" class="ghost">Cerrar sesión</button>
+  </aside>
+  <main>
+    <header><div><h1 id="page-title">Resumen</h1><p id="page-subtitle">Estado general de la instalación</p></div><button id="save" class="primary">Guardar cambios</button></header>
+
+    <section data-view="overview" class="view active">
+      <div class="hero"><div><span class="eyebrow">PLATAFORMA AUTOGESTIONADA</span><h2>Tu agente de voz, bajo tu control</h2><p>Completá la configuración y probá el flujo antes de conectarlo a llamadas reales.</p></div><div class="score"><strong id="ready-score">0/7</strong><span>controles listos</span></div></div>
+      <div id="readiness" class="grid cards"></div>
+      <div class="panel"><h3>Prueba rápida del flujo</h3><div class="inline"><input id="sim-utterance" value="Necesito hablar con soporte por un problema de Internet"><button id="simulate">Simular</button></div><pre id="sim-result">Sin ejecutar.</pre></div>
+    </section>
+
+    <section data-view="agent" class="view">
+      <div class="panel form-grid">
+        <h3>Identidad</h3>
+        <label>Nombre del agente<input data-path="agent.display_name"></label>
+        <label>Organización<input data-path="agent.organization"></label>
+        <label>Identidad pública<input data-path="agent.public_identity"></label>
+        <label>Idioma<input data-path="agent.language" placeholder="es-AR"></label>
+        <label>Audiencia<select data-path="agent.audience"><option value="customers">Clientes</option><option value="employees">Empleados</option><option value="both">Ambos</option></select></label>
+        <label>Tono<select data-path="agent.tone"><option value="friendly">Cercano</option><option value="neutral">Neutral</option><option value="formal">Formal</option></select></label>
+        <label class="wide">¿Quién soy y qué debo decir?<textarea data-path="agent.context" rows="6"></textarea></label>
+        <label class="wide">Información o temas prohibidos<textarea data-path="agent.forbidden_topics" rows="4"></textarea></label>
+      </div>
+    </section>
+
+    <section data-view="telephony" class="view">
+      <div class="panel form-grid"><h3>Cuenta SIP</h3>
+        <label>Servidor PBX<input data-path="sip.host" placeholder="pbx.example.local"></label>
+        <label>Puerto<input type="number" data-path="sip.port"></label>
+        <label>Transporte<select data-path="sip.transport"><option>udp</option><option>tcp</option><option>tls</option></select></label>
+        <label>Interno<input data-path="sip.extension"></label>
+        <label>Usuario de autenticación<input data-path="sip.auth_username"></label>
+        <label>Clave SIP<input id="sip-secret" type="password" placeholder="No se vuelve a mostrar"></label>
+        <button id="save-sip-secret">Guardar clave SIP</button>
+      </div>
+      <div class="panel"><h3>Configuración renderizada</h3><button id="render-sip">Generar vista previa</button> <button id="apply-sip">Aplicar al gateway</button><pre id="sip-preview">Todavía no generada.</pre></div>
+    </section>
+
+    <section data-view="ai" class="view">
+      <div class="panel form-grid"><h3>Proveedor del modelo</h3>
+        <label>Proveedor<select data-path="provider.kind"><option value="codex_subscription">ChatGPT / Codex — económico (experimental)</option><option value="openai_api">OpenAI API</option><option value="openai_compatible">OpenAI compatible</option></select></label>
+        <label>Modelo<input data-path="provider.model" placeholder="Se valida con la cuenta"></label>
+        <label>URL base<input data-path="provider.base_url" placeholder="Sólo proveedores API"></label>
+        <label>Razonamiento<select data-path="provider.reasoning_effort"><option value="none">Mínimo</option><option value="low">Bajo</option><option value="medium">Medio</option><option value="high">Alto</option></select></label>
+        <label>Timeout<input type="number" data-path="provider.timeout_seconds"></label>
+      </div>
+      <div class="panel codex"><div><h3>Conectar ChatGPT</h3><p>Usá tu suscripción de ChatGPT mediante autorización por código. No necesitás instalar Codex ni usar una terminal.</p><p class="warning">Esta integración es experimental. OpenAI recomienda API keys para automatización estable.</p><small id="codex-state">Estado todavía no verificado.</small></div><div><button id="codex-connect">Conectar cuenta</button> <button id="codex-disconnect">Desconectar</button></div><div id="codex-login" class="device hidden"><a id="codex-url" target="_blank" rel="noopener">Abrir OpenAI</a><strong id="codex-code"></strong><small>El código vence en 15 minutos. Continuá sólo si iniciaste esta conexión.</small></div></div>
+      <div class="panel form-grid"><h3>Prueba del proveedor</h3><label>API key<input id="provider-secret" type="password" placeholder="Se cifra y nunca se vuelve a mostrar"></label><button id="save-provider-secret">Guardar API key</button><button id="test-provider">Probar modelo configurado</button><pre id="provider-test-result">Sin ejecutar.</pre></div>
+    </section>
+
+    <section data-view="voice" class="view"><div class="panel form-grid"><h3>Escucha y voz</h3>
+      <label>STT<select data-path="speech.stt_provider"><option value="google_web">Google Web Speech</option><option value="openai">OpenAI</option><option value="deepgram">Deepgram</option></select></label>
+      <label>TTS<select data-path="speech.tts_provider"><option value="piper">Piper local</option><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select></label>
+      <label>Voz<input data-path="speech.voice" placeholder="Nombre o ID de voz"></label>
+      <label>Idioma<input data-path="speech.language"></label>
+      <label>Silencio final (ms)<input type="number" data-path="speech.end_silence_ms"></label>
+      <label>Turno máximo (s)<input type="number" data-path="speech.max_utterance_seconds"></label>
+      <button id="voice-demo" disabled>Demo de voz (requiere runtime de audio)</button>
+    </div></section>
+
+    <section data-view="directory" class="view"><div class="panel"><div class="section-head"><div><h3>Destinos autorizados</h3><p>Cada destino es una política; los internos no cargados no existen para el agente.</p></div><button id="add-destination">Agregar destino</button></div><div id="directory-list"></div></div></section>
+
+    <section data-view="flows" class="view"><div class="panel"><div class="section-head"><div><h3>Reglas de enrutamiento</h3><p>El modelo interpreta; estas reglas deciden.</p></div><button id="add-rule">Agregar regla</button></div><div id="routing-list"></div></div></section>
+
+    <section data-view="security" class="view"><div class="panel"><h3>Controles operativos</h3><div id="safety-list" class="toggle-list"></div></div></section>
+
+    <section data-view="diagnostics" class="view"><div class="grid cards" id="diagnostic-cards"></div><div class="panel"><h3>Auditoría</h3><button id="load-audit">Actualizar</button><pre id="audit-log">Sin cargar.</pre></div></section>
+  </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

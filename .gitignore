@@ -1,0 +1,36 @@
+# Runtime data and secrets
+.env
+.env.*
+!.env.example
+data/
+secrets/
+*.db
+*.sqlite*
+*.key
+*.pem
+*.token
+.auth/
+.codex/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Audio and private call artifacts
+recordings/
+transcripts/
+*.wav
+*.mp3
+*.pcap
+*.log

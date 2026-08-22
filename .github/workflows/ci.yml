@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: pytest -q
+      - run: pip-audit --progress-spinner off --skip-editable
+      - name: Scan tracked source for credentials
+        run: |
+          detect-secrets scan --all-files --exclude-files '^(\.git|\.pytest_cache|\.ruff_cache|__pycache__)/' > /tmp/scan.json
+          python - <<'PY'
+          import json
+          data = json.load(open('/tmp/scan.json'))
+          findings = sum(len(items) for items in data.get('results', {}).values())
+          if findings:
+              raise SystemExit(f"credential scanner reported {findings} candidate(s)")
+          PY
+      - name: Reject common private artifacts
+        run: |
+          test -z "$(find . -type f \( -name 'auth.json' -o -name '*.db' -o -name '*.sqlite' -o -name '*.pcap' -o -name '*.wav' \) -not -path './.git/*' -print -quit)"
