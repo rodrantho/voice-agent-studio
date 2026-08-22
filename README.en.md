@@ -2,6 +2,10 @@
 
 [Español](README.md) | **English** | [Deutsch](README.de.md)
 
+![Voice Agent Studio](docs/assets/social-preview.svg)
+
+> A self-hosted voice agent that registers directly as a normal SIP extension. No Asterisk installation or administration required.
+
 A self-hosted web application for deploying a telephone agent on the same network as an existing PBX and registering it as a standard SIP extension.
 
 ## How it works
@@ -82,3 +86,9 @@ python3 -m venv .venv
 ```
 
 License: AGPL-3.0-only.
+
+## More information
+
+- [Roadmap](ROADMAP.md)
+- [PBX end-to-end acceptance guide](docs/e2e-pbx-acceptance.md)
+- [Contributing](CONTRIBUTING.md)

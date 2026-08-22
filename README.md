@@ -2,6 +2,10 @@
 
 **Español** | [English](README.en.md) | [Deutsch](README.de.md)
 
+![Voice Agent Studio](docs/assets/social-preview.svg)
+
+> Un agente de voz autohospedado que se registra directamente como un interno SIP normal. Sin instalar ni administrar Asterisk.
+
 Aplicación web autogestionada para instalar un agente telefónico en la misma red que una PBX y registrarlo como un interno SIP normal.
 
 ## Funcionamiento
@@ -82,3 +86,9 @@ python3 -m venv .venv
 ```
 
 Licencia: AGPL-3.0-only.
+
+## Más información
+
+- [Roadmap](ROADMAP.md)
+- [Guía de aceptación E2E con PBX](docs/e2e-pbx-acceptance.md)
+- [Contribuir](CONTRIBUTING.md)

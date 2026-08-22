@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible problem
+labels: bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, phone numbers, recordings, transcripts, or customer data.
+  - type: input
+    id: pbx
+    attributes:
+      label: PBX and version
+      placeholder: FreePBX 17 / Asterisk 22
+    validations:
+      required: true
+  - type: input
+    id: transport
+    attributes:
+      label: SIP transport and codec
+      placeholder: UDP / PCMU
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs and expected behavior

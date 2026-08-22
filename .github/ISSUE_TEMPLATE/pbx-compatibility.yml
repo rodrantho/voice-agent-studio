@@ -1,0 +1,23 @@
+name: PBX compatibility report
+description: Report a PBX product and version that you tested
+labels: compatibility
+body:
+  - type: input
+    id: pbx
+    attributes:
+      label: PBX product and version
+    validations:
+      required: true
+  - type: input
+    id: transport
+    attributes:
+      label: SIP transport and codec
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Tested flow and result
+      description: Include REGISTER, inbound audio, outbound audio, STT, TTS, and transfer results. Do not include credentials.
+    validations:
+      required: true
