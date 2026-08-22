@@ -39,6 +39,7 @@ class SipConfig(BaseModel):
     codecs: list[Literal["ulaw", "alaw", "g722", "opus"]] = Field(
         default_factory=lambda: ["ulaw", "alaw"]
     )
+    local_port: int = Field(default=5062, ge=1024, le=65535)
     rtp_start: int = Field(default=10000, ge=1024, le=65535)
     rtp_end: int = Field(default=10100, ge=1024, le=65535)
 
@@ -73,8 +74,8 @@ class ProviderConfig(BaseModel):
 
 
 class SpeechConfig(BaseModel):
-    stt_provider: Literal["google_web", "openai", "deepgram"] = "google_web"
-    tts_provider: Literal["piper", "openai", "elevenlabs"] = "piper"
+    stt_provider: Literal["google_web", "openai", "deepgram"] = "openai"
+    tts_provider: Literal["piper", "openai", "elevenlabs"] = "openai"
     voice: str = ""
     language: str = "en-US"
     end_silence_ms: int = Field(default=600, ge=200, le=3000)
@@ -168,3 +169,7 @@ class SecretInput(BaseModel):
 class SimulationRequest(BaseModel):
     utterance: str = Field(min_length=1, max_length=2000)
     state: dict[str, str] = Field(default_factory=dict)
+
+
+class SpeechTestRequest(BaseModel):
+    text: str = Field(default="Voice Agent Studio audio test.", min_length=1, max_length=500)

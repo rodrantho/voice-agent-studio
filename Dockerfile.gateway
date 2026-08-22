@@ -1,7 +1,0 @@
-FROM debian:13-slim
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends asterisk gettext-base inotify-tools ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY deploy/asterisk/entrypoint.sh /entrypoint.sh
-COPY deploy/asterisk/templates /templates
-RUN chmod 0755 /entrypoint.sh
-EXPOSE 5060/udp 8088/tcp 10000-10100/udp
-ENTRYPOINT ["/entrypoint.sh"]

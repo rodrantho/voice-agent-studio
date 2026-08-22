@@ -13,7 +13,14 @@ from fastapi.staticfiles import StaticFiles
 
 from .call_engine import PolicyEngine, consent
 from .db import Database
-from .models import AppConfig, LoginRequest, SecretInput, SetupRequest, SimulationRequest
+from .models import (
+    AppConfig,
+    LoginRequest,
+    SecretInput,
+    SetupRequest,
+    SimulationRequest,
+    SpeechTestRequest,
+)
 from .providers import (
     CodexAppServer,
     CodexSubscriptionProvider,
@@ -21,14 +28,13 @@ from .providers import (
     ProviderError,
 )
 from .security import Vault
-from .sip import render_asterisk
+from .sip import sanitized_preview
+from .sip_runtime import SipAgentRuntime, SipRuntimeError
+from .speech import SpeechError, SpeechService
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 DATA_DIR = Path(os.environ.get("VAS_DATA_DIR", "./data")).resolve()
-ASTERISK_CONFIG_DIR = Path(
-    os.environ.get("VAS_ASTERISK_CONFIG_DIR", "/tmp/vas-asterisk-disabled")
-).resolve()
 SESSION_SECONDS = 12 * 60 * 60
 
 
@@ -43,15 +49,20 @@ codex = CodexAppServer(
     DATA_DIR / "codex-home",
 )
 codex_subscription = CodexSubscriptionProvider(DATA_DIR / "codex-home", codex)
+sip_runtime = SipAgentRuntime(db, DATA_DIR, codex_subscription)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    yield
-    await codex.close()
+    try:
+        await sip_runtime.start()
+        yield
+    finally:
+        await sip_runtime.stop()
+        await codex.close()
 
 
-app = FastAPI(title="Voice Agent Studio", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Voice Agent Studio", version="0.2.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -108,8 +119,14 @@ def index():
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "configured": db.get_config().configured, "setup_required": not db.has_users()}
+async def health():
+    sip = await sip_runtime.status()
+    return {
+        "status": "ok",
+        "configured": db.get_config().configured,
+        "setup_required": not db.has_users(),
+        "sip": {"running": sip["running"], "registered": sip["registered"]},
+    }
 
 
 @app.post("/api/setup")
@@ -168,6 +185,11 @@ def audit(user=Depends(session_user)):
     return {"entries": db.audits(100)}
 
 
+@app.get("/api/calls")
+def calls(user=Depends(session_user)):
+    return {"calls": db.calls(100)}
+
+
 @app.post("/api/simulate")
 def simulate(payload: SimulationRequest, user=Depends(csrf_user)):
     result = PolicyEngine(db.get_config()).simulate(payload.utterance, payload.state)
@@ -182,39 +204,29 @@ def classify_consent(payload: SimulationRequest, user=Depends(csrf_user)):
 
 @app.get("/api/sip/render")
 def sip_render(user=Depends(session_user)):
-    rendered = render_asterisk(db.get_config().sip)
-    return {"pjsip": rendered.pjsip, "extensions": rendered.extensions, "rtp": rendered.rtp}
+    return {"preview": sanitized_preview(db.get_config().sip)}
 
 
 @app.post("/api/sip/apply")
-def sip_apply(user=Depends(csrf_user)):
-    if os.environ.get("VAS_ENABLE_SIP_APPLY", "false").lower() != "true":
-        raise HTTPException(409, "SIP apply is disabled on this installation")
+async def sip_apply(user=Depends(csrf_user)):
     sip = db.get_config().sip
     if not sip.host or not sip.extension:
         raise HTTPException(409, "SIP host and extension must be configured")
-    rendered = render_asterisk(sip)
     sip_password = db.get_secret("sip_password")
     if not sip_password:
         raise HTTPException(409, "SIP password is not configured")
-    ASTERISK_CONFIG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(ASTERISK_CONFIG_DIR, 0o700)
-    files = {
-        "pjsip.conf": rendered.pjsip.replace("${ENV(VAS_SIP_PASSWORD)}", sip_password),
-        "extensions.conf": rendered.extensions,
-        "rtp.conf": rendered.rtp,
-    }
-    for name, content in files.items():
-        temporary = ASTERISK_CONFIG_DIR / f".{name}.tmp"
-        target = ASTERISK_CONFIG_DIR / name
-        temporary.write_text(content)
-        os.chmod(temporary, 0o600)
-        temporary.replace(target)
-    marker = ASTERISK_CONFIG_DIR / ".reload"
-    marker.write_text(str(int(time.time())))
-    os.chmod(marker, 0o600)
-    db.audit(user["username"], "sip.applied", {"files": sorted(files)})
-    return {"applied": True, "files": sorted(files)}
+    try:
+        status = await sip_runtime.reload()
+    except SipRuntimeError as exc:
+        db.audit(user["username"], "sip.registration_failed", {"error": type(exc).__name__})
+        raise HTTPException(502, str(exc)) from exc
+    db.audit(user["username"], "sip.applied", {"host": sip.host, "extension": sip.extension})
+    return {"applied": True, "status": status}
+
+
+@app.get("/api/sip/status")
+async def sip_status(user=Depends(session_user)):
+    return await sip_runtime.status()
 
 
 @app.post("/api/providers/codex/login/start")
@@ -285,9 +297,27 @@ async def provider_test(user=Depends(csrf_user)):
             ).complete(config.provider.model, instructions, "Connectivity test")
     except ProviderError as exc:
         db.audit(user["username"], "provider.test_failed", {"provider": config.provider.kind})
-        raise HTTPException(503, str(exc)) from exc
+        raise HTTPException(502, str(exc)) from exc
     db.audit(user["username"], "provider.test_ok", {"provider": config.provider.kind})
     return {"ok": result.strip() == "PROVIDER_OK", "response": result[:200]}
+
+
+@app.post("/api/speech/test")
+async def test_speech(payload: SpeechTestRequest, user=Depends(csrf_user)):
+    config = db.get_config()
+    service = SpeechService(
+        config.speech, db.get_secret("stt_api_key"), db.get_secret("tts_api_key")
+    )
+    sounds_dir = Path(os.environ.get("VAS_SOUNDS_DIR", "/tmp/vas-sounds-test")).resolve()
+    try:
+        name = await service.synthesize(payload.text, sounds_dir)
+        path = sounds_dir / f"{name.split('/', 1)[1]}.wav"
+        size = path.stat().st_size
+        path.unlink(missing_ok=True)
+        db.audit(user["username"], "speech.test", {"provider": config.speech.tts_provider})
+        return {"ok": True, "provider": config.speech.tts_provider, "wav_bytes": size}
+    except SpeechError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @app.get("/api/readiness")

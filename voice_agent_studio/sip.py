@@ -5,59 +5,99 @@ from dataclasses import dataclass
 from .models import SipConfig
 
 
-@dataclass
-class AsteriskConfig:
-    pjsip: str
-    extensions: str
-    rtp: str
+class SipConfigurationError(ValueError):
+    pass
 
 
-def render_asterisk(config: SipConfig) -> AsteriskConfig:
-    transport = f"transport-{config.transport}"
-    endpoint = f"""[{transport}]
-type=transport
-protocol={config.transport}
-bind=0.0.0.0:5060
+@dataclass(frozen=True)
+class LinphoneConfig:
+    content: str
+    identity: str
+    proxy: str
 
-[voice-agent-registration]
-type=registration
-outbound_auth=voice-agent-auth
-server_uri=sip:{config.host}:{config.port}
-client_uri=sip:{config.extension}@{config.host}:{config.port}
-transport={transport}
-retry_interval=60
-forbidden_retry_interval=300
-expiration=3600
-contact_user={config.extension}
 
-[voice-agent-auth]
-type=auth
-auth_type=userpass
-username={config.auth_username or config.extension}
-password=${{ENV(VAS_SIP_PASSWORD)}}
+def _safe(value: str, field: str) -> str:
+    if not value or any(char in value for char in "\r\n[]"):
+        raise SipConfigurationError(f"invalid {field}")
+    return value
 
-[voice-agent-endpoint]
-type=endpoint
-context=voice-agent-inbound
-disallow=all
-allow={','.join(config.codecs)}
-outbound_auth=voice-agent-auth
-aors=voice-agent-aor
-transport={transport}
 
-[voice-agent-aor]
-type=aor
-contact=sip:{config.host}:{config.port}
+def render_linphone(config: SipConfig, password: str) -> LinphoneConfig:
+    host = _safe(config.host, "SIP host")
+    extension = _safe(config.extension, "SIP extension")
+    auth_username = _safe(config.auth_username or extension, "SIP auth username")
+    password = _safe(password, "SIP password")
+    transport = config.transport.lower()
+    proxy = f"sip:{host}:{config.port};transport={transport}"
+    identity = f"sip:{extension}@{host}"
+    escaped_password = password.replace("\\", "\\\\").replace('"', '\\"')
+    codec_names = {"ulaw": "PCMU", "alaw": "PCMA", "g722": "G722", "opus": "opus"}
+    enabled = {codec_names[name].lower() for name in config.codecs}
+    codecs = [
+        (0, "PCMU", 8000),
+        (8, "PCMA", 8000),
+        (9, "G722", 8000),
+        (111, "opus", 48000),
+    ]
+    payloads = []
+    for index, (number, mime, rate) in enumerate(codecs):
+        payloads.append(
+            f"[audio_codec_{index}]\nmime={mime}\nrate={rate}\nchannels=1\n"
+            f"recv_fmtp=\nenabled={1 if mime.lower() in enabled else 0}\nnumber={number}\n"
+        )
+    content = f"""[net]
+download_bw=0
+upload_bw=0
+firewall_policy=0
 
-[voice-agent-identify]
-type=identify
-endpoint=voice-agent-endpoint
-match={config.host}
-"""
-    extensions = """[voice-agent-inbound]
-exten => _X!,1,NoOp(Voice Agent Studio inbound)
- same => n,Stasis(voice-agent-studio)
- same => n,Hangup()
-"""
-    rtp = f"[general]\nrtpstart={config.rtp_start}\nrtpend={config.rtp_end}\n"
-    return AsteriskConfig(endpoint, extensions, rtp)
+[sip]
+sip_port={config.local_port}
+guess_hostname=1
+inc_timeout=30
+use_info=1
+use_rfc2833=1
+default_proxy=0
+
+[rtp]
+audio_rtp_port={config.rtp_start}
+audio_jitt_comp=60
+
+[sound]
+playback_dev_id=ALSA: default device
+ringer_dev_id=ALSA: default device
+capture_dev_id=ALSA: default device
+
+[proxy_0]
+reg_proxy={proxy}
+reg_route=
+reg_identity={identity}
+reg_expires=3600
+reg_sendregister=1
+publish=0
+dial_escape_plus=0
+
+[auth_info_0]
+username={auth_username}
+userid={auth_username}
+passwd=\"{escaped_password}\"
+realm=
+domain={host}
+
+""" + "\n".join(payloads)
+    return LinphoneConfig(content=content, identity=identity, proxy=proxy)
+
+
+def sanitized_preview(config: SipConfig) -> str:
+    if not config.host or not config.extension:
+        return "Cuenta SIP incompleta."
+    auth = config.auth_username or config.extension
+    codecs = ", ".join(config.codecs)
+    return (
+        f"Servidor: {config.host}:{config.port} ({config.transport.upper()})\n"
+        f"Interno: {config.extension}\n"
+        f"Usuario de autenticación: {auth}\n"
+        f"Puerto SIP local: {config.local_port}\n"
+        f"RTP: {config.rtp_start}-{config.rtp_end}\n"
+        f"Codecs: {codecs}\n"
+        "Contraseña: [GUARDADA CIFRADA]"
+    )

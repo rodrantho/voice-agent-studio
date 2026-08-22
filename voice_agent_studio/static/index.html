@@ -61,16 +61,18 @@
     </section>
 
     <section data-view="telephony" class="view">
-      <div class="panel form-grid"><h3>Cuenta SIP</h3>
+      <div class="panel form-grid"><h3>Interno SIP del agente</h3>
+        <p class="wide">Creá un interno normal en tu PBX y cargalo acá. La aplicación se registra directamente como un teléfono SIP; no instala ni administra la PBX.</p>
         <label>Servidor PBX<input data-path="sip.host" placeholder="pbx.example.local"></label>
         <label>Puerto<input type="number" data-path="sip.port"></label>
-        <label>Transporte<select data-path="sip.transport"><option>udp</option><option>tcp</option><option>tls</option></select></label>
+        <label>Transporte<select data-path="sip.transport"><option>udp</option><option>tcp</option></select></label>
         <label>Interno<input data-path="sip.extension"></label>
         <label>Usuario de autenticación<input data-path="sip.auth_username"></label>
+        <label>Puerto SIP local<input type="number" data-path="sip.local_port"></label>
         <label>Clave SIP<input id="sip-secret" type="password" placeholder="No se vuelve a mostrar"></label>
         <button id="save-sip-secret">Guardar clave SIP</button>
       </div>
-      <div class="panel"><h3>Configuración renderizada</h3><button id="render-sip">Generar vista previa</button> <button id="apply-sip">Aplicar al gateway</button><pre id="sip-preview">Todavía no generada.</pre></div>
+      <div class="panel"><h3>Conexión</h3><button id="render-sip">Revisar configuración</button> <button id="apply-sip">Guardar y conectar</button> <button id="refresh-sip">Actualizar estado</button><pre id="sip-preview">Todavía no verificada.</pre></div>
     </section>
 
     <section data-view="ai" class="view">
@@ -86,13 +88,17 @@
     </section>
 
     <section data-view="voice" class="view"><div class="panel form-grid"><h3>Escucha y voz</h3>
-      <label>STT<select data-path="speech.stt_provider"><option value="google_web">Google Web Speech</option><option value="openai">OpenAI</option><option value="deepgram">Deepgram</option></select></label>
+      <label>STT<select data-path="speech.stt_provider"><option value="google_web">Comando externo del servidor</option><option value="openai">OpenAI</option><option value="deepgram">Deepgram</option></select></label>
       <label>TTS<select data-path="speech.tts_provider"><option value="piper">Piper local</option><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select></label>
       <label>Voz<input data-path="speech.voice" placeholder="Nombre o ID de voz"></label>
       <label>Idioma<input data-path="speech.language"></label>
       <label>Silencio final (ms)<input type="number" data-path="speech.end_silence_ms"></label>
       <label>Turno máximo (s)<input type="number" data-path="speech.max_utterance_seconds"></label>
-      <button id="voice-demo" disabled>Demo de voz (requiere runtime de audio)</button>
+      <label>API key STT<input id="stt-secret" type="password" placeholder="Se cifra y nunca se vuelve a mostrar"></label>
+      <button id="save-stt-secret">Guardar API key STT</button>
+      <label>API key TTS<input id="tts-secret" type="password" placeholder="Se cifra y nunca se vuelve a mostrar"></label>
+      <button id="save-tts-secret">Guardar API key TTS</button>
+      <button id="voice-demo">Probar síntesis de voz</button>
     </div></section>
 
     <section data-view="directory" class="view"><div class="panel"><div class="section-head"><div><h3>Destinos autorizados</h3><p>Cada destino es una política; los internos no cargados no existen para el agente.</p></div><button id="add-destination">Agregar destino</button></div><div id="directory-list"></div></div></section>

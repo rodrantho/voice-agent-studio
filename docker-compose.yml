@@ -2,59 +2,35 @@ services:
   studio:
     build: .
     restart: unless-stopped
+    network_mode: host
     environment:
       VAS_MASTER_KEY_FILE: /run/secrets/master_key
       VAS_DATA_DIR: /data
+      VAS_BIND_HOST: ${VAS_BIND_HOST:-127.0.0.1}
+      VAS_BIND_PORT: ${VAS_HTTP_PORT:-8080}
       VAS_SECURE_COOKIES: ${VAS_SECURE_COOKIES:-false}
-      VAS_ENABLE_SIP_APPLY: "true"
-      VAS_ASTERISK_CONFIG_DIR: /asterisk-config
+      VAS_PIPER_MODEL: ${VAS_PIPER_MODEL:-}
+      VAS_PIPER_COMMAND: ${VAS_PIPER_COMMAND:-piper}
     secrets:
       - master_key
     volumes:
       - studio-data:/data
-      - asterisk-config:/asterisk-config
-    ports:
-      - "127.0.0.1:${VAS_HTTP_PORT:-8080}:8080"
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, SETGID, SETPCAP, SETUID]
     read_only: true
     tmpfs:
-      - /tmp:size=64m,noexec,nosuid,nodev
+      - /tmp:size=256m,noexec,nosuid,nodev,mode=1777
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)"]
-      interval: 30s
+      test: ["CMD", "python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('VAS_BIND_PORT','8080')+'/api/health', timeout=3)"]
+      interval: 15s
       timeout: 5s
-      retries: 3
-
-  gateway:
-    profiles: ["telephony"]
-    build:
-      context: .
-      dockerfile: Dockerfile.gateway
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      PBX_HOST: ${PBX_HOST:-127.0.0.1}
-      PBX_PORT: ${PBX_PORT:-5060}
-      SIP_EXTENSION: ${SIP_EXTENSION:-0000}
-      SIP_AUTH_USERNAME: ${SIP_AUTH_USERNAME:-0000}
-      SIP_PASSWORD: ${SIP_PASSWORD:-change-me}
-      SIP_TRANSPORT: ${SIP_TRANSPORT:-udp}
-      RTP_START: ${RTP_START:-10000}
-      RTP_END: ${RTP_END:-10100}
-      ARI_PASSWORD: ${ARI_PASSWORD:-change-me}
-      VAS_SIP_PASSWORD: ${SIP_PASSWORD:-change-me}
-    volumes:
-      - asterisk-config:/generated
-    security_opt:
-      - no-new-privileges:true
-    cap_drop: [ALL]
-    cap_add: [CHOWN, NET_BIND_SERVICE, SETUID, SETGID]
+      retries: 5
+      start_period: 15s
 
 volumes:
   studio-data:
-  asterisk-config:
 
 secrets:
   master_key:

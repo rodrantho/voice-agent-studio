@@ -145,3 +145,34 @@ class Database:
         with self.connect() as conn:
             rows = conn.execute("SELECT created_at,actor,action,details FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [{**dict(r), "details": json.loads(r["details"])} for r in rows]
+
+    def start_call(self, call_id: str, source: str, metadata: dict) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO calls(id,started_at,source,metadata) VALUES(?,?,?,?)",
+                (call_id, int(time.time()), source[:128], json.dumps(metadata, separators=(",", ":"))),
+            )
+            conn.commit()
+
+    def finish_call(self, call_id: str, intent: str, outcome: str, metadata: dict) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                "UPDATE calls SET ended_at=?,intent=?,outcome=?,metadata=? WHERE id=?",
+                (
+                    int(time.time()),
+                    intent[:128],
+                    outcome[:128],
+                    json.dumps(metadata, separators=(",", ":")),
+                    call_id,
+                ),
+            )
+            conn.commit()
+
+    def calls(self, limit: int = 100) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT id,started_at,ended_at,source,intent,outcome,metadata "
+                "FROM calls ORDER BY started_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [{**dict(row), "metadata": json.loads(row["metadata"])} for row in rows]

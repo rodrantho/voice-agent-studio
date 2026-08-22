@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voice-agent-studio"
-version = "0.1.0"
+version = "0.2.0"
 description = "Self-hosted browser-managed SIP voice agent platform"
 readme = "README.md"
 requires-python = ">=3.11"

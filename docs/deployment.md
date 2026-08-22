@@ -1,52 +1,65 @@
-# Deployment
+# Despliegue
 
-## Recommended topology
+## Requisitos
 
-Deploy the control plane beside the PBX or on a server connected through a private routed tunnel. Administer it through SSH port forwarding, VPN, Tailscale or an authenticated reverse proxy.
+- Host Linux dentro de la red de la PBX.
+- Docker Engine con Compose.
+- Un interno SIP dedicado.
+- Conectividad SIP y RTP entre el host y la PBX.
+- Proveedor STT/TTS y modelo, o alternativas locales configuradas.
+
+## Instalación
 
 ```bash
-ssh -L 8080:127.0.0.1:8080 server
+./scripts/bootstrap.sh
+docker compose up -d --build
+docker compose ps
+curl -fsS http://127.0.0.1:8080/api/health
 ```
 
-Then browse to `http://127.0.0.1:8080`.
+`bootstrap.sh` crea `.env` y `secrets/master_key` con permisos restrictivos. No los copies al repositorio.
 
-## Firewall
+## Acceso web
 
-The default control plane needs outbound HTTPS and local TCP/8080. The optional gateway needs:
+Por defecto escucha en `127.0.0.1:8080`. Para operación remota, preferí un proxy HTTPS o túnel autenticado. Si necesitás escuchar en la LAN, definí explícitamente:
 
-- SIP to the PBX, usually UDP/5060 or the verified PBX port;
-- configured UDP RTP range;
-- no public ARI/AMI exposure.
+```dotenv
+VAS_BIND_HOST=0.0.0.0
+VAS_HTTP_PORT=8080
+VAS_SECURE_COOKIES=false
+```
 
-## Backup
+Aplicá firewall y HTTPS antes de exponerlo fuera de una red confiable.
 
-Back up:
+## Datos requeridos de la PBX
 
-- the named `studio-data` volume;
-- the master key from the external secret store;
-- the deployment manifests and non-secret configuration.
+- servidor o dominio;
+- puerto SIP;
+- UDP o TCP;
+- interno;
+- usuario de autenticación si difiere del interno;
+- contraseña;
+- codecs habilitados;
+- permisos de llamada a los internos de transferencia.
 
-Do not archive the generated `asterisk-config` volume as ordinary configuration: it contains the rendered SIP credential. Recreate it from the encrypted application store after restoration.
+No se requiere instalar software en la PBX ni cambiar su dialplan, salvo dirigir llamadas al interno asignado según la operación habitual de esa PBX.
 
-## Applying gateway configuration
+## Criterio de aceptación
 
-1. Save the SIP password in the dashboard.
-2. Save the validated SIP settings.
-3. Review **Generate preview**; it contains a placeholder, not the password.
-4. Select **Apply to gateway**.
-5. The control plane atomically replaces only `pjsip.conf`, `extensions.conf` and `rtp.conf` in the private volume.
-6. The gateway watcher copies them with mode `0600` and runs `core reload`.
+1. El dashboard informa proceso SIP activo.
+2. La PBX confirma `REGISTER` y el dashboard informa registrado.
+3. Una llamada nueva llega y se autoatiende.
+4. Saludo y respuesta TTS se oyen completos.
+5. STT reconoce una frase representativa.
+6. Se validan silencio, timeout y corte remoto.
+7. Se prueba una transferencia aceptada, una rechazada y una sin respuesta.
+8. Se confirma limpieza de ambas piernas y ausencia de procesos duplicados.
 
-Apply only in a call-free window. A malformed upstream PBX value can still cause registration loss even though the schema blocks arbitrary config injection.
+## Respaldo
 
-Test restoration on an isolated host. A database backup without the master key cannot recover secrets.
+Respaldar juntos:
 
-## Upgrade
+- volumen `studio-data`;
+- `secrets/master_key`.
 
-1. Back up data and the master key.
-2. Pull the reviewed release tag.
-3. Build without using mutable `latest` dependencies.
-4. Run unit and API tests.
-5. Recreate only the control-plane service first.
-6. Verify health and login.
-7. Upgrade the gateway during a call-free window.
+Sin la clave maestra no pueden recuperarse los secretos cifrados. Verificá restauración en una instancia aislada.
