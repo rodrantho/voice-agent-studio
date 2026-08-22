@@ -1,5 +1,7 @@
 # Voice Agent Studio
 
+**Español** | [English](README.en.md) | [Deutsch](README.de.md)
+
 Aplicación web autogestionada para instalar un agente telefónico en la misma red que una PBX y registrarlo como un interno SIP normal.
 
 ## Funcionamiento
@@ -33,7 +35,7 @@ La aplicación **no instala ni administra la PBX**. El operador solamente crea o
 Requisitos: Linux, Docker Engine y Docker Compose.
 
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/rodrantho/voice-agent-studio.git
 cd voice-agent-studio
 ./scripts/bootstrap.sh
 docker compose up -d --build
